@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drag and Drop Reordering</title>
+    <style>
+        .list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .list-item {
+            margin: 5px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            cursor: move;
+        }
+    </style>
+</head>
+<body>
+
+<ul id="itemList" class="list"></ul>
+
+<script>
+    const list = document.getElementById('itemList');
+    let draggedItem = null;
+
+    // Fetch data from the API and populate the list
+    async function fetchData() {
+        try {
+            const response = await fetch('http://localhost:8080/api/items/get');
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            const data = await response.json();
+            console.log('Fetched data:', data); // Debugging
+            populateList(data);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        }
+    }
+
+    // Populate the list with items from the API
+    function populateList(items) {
+        list.innerHTML = ''; // Clear any existing items
+        items.forEach(item => {
+            const listItem = document.createElement('li');
+            listItem.id = item.id;
+            listItem.className = 'list-item';
+            listItem.draggable = true;
+            listItem.textContent = item.mobileName; // Use mobileName from JSON
+            list.appendChild(listItem);
+        });
+    }
+
+    // Update the item order in the API
+    async function updateOrder() {
+        const items = list.querySelectorAll('.list-item');
+        const updates = Array.from(items).map((item, index) => ({
+            id: item.id,
+            priority: index + 1
+        }));
+
+        for (const update of updates) {
+            try {
+                await fetch(`http://localhost:8080/api/items/${update.id}/priority/${update.priority}`, {
+                    method: 'PUT'
+                });
+            } catch (error) {
+                console.error('Error updating order:', error);
+            }
+        }
+    }
+
+    // Event listeners for drag-and-drop functionality
+    list.addEventListener('dragstart', (e) => {
+        draggedItem = e.target;
+        e.target.style.opacity = '0.5';
+    });
+
+    list.addEventListener('dragend', (e) => {
+        e.target.style.opacity = '';
+    });
+
+    list.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+
+    list.addEventListener('dragenter', (e) => {
+        if (e.target.className === 'list-item') {
+            e.target.style.border = '2px dashed #000';
+        }
+    });
+
+    list.addEventListener('dragleave', (e) => {
+        if (e.target.className === 'list-item') {
+            e.target.style.border = '';
+        }
+    });
+
+    list.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.target.className === 'list-item') {
+            e.target.style.border = '';
+            const listItems = Array.from(list.querySelectorAll('.list-item'));
+            const targetIndex = listItems.indexOf(e.target);
+            const draggedIndex = listItems.indexOf(draggedItem);
+
+            if (targetIndex !== draggedIndex) {
+                list.insertBefore(draggedItem, targetIndex > draggedIndex ? e.target.nextSibling : e.target);
+                updateOrder();
+            }
+        }
+    });
+
+    // Initial data fetch
+    fetchData();
+</script>
+
+</body>
+</html>
+        
